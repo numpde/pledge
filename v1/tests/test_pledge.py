@@ -3,6 +3,7 @@ from unittest import TestCase
 import brownie.network.contract
 
 from brownie import network, accounts
+from brownie.exceptions import VirtualMachineError
 
 pledge_fee = "0.010 ether"
 min_pledge = "0.001 ether"
@@ -90,6 +91,15 @@ class Test(TestCase):
 
         # 8. Pay out from within the Pledge contract
 
-        # https://eth-brownie.readthedocs.io/en/stable/core-contracts.html#transaction-parameters
-        tx = pledge.pay(benefactor.address, beneficiary.address, {'from': owner.address, 'gas_limit': 80_000, 'allow_revert': True})
-        self.assertEqual(1, tx.status)
+        with self.assertRaises(AssertionError):
+            # https://eth-brownie.readthedocs.io/en/stable/core-contracts.html#transaction-parameters
+            tx = pledge.pay(benefactor.address, beneficiary.address, {'from': owner.address, 'gas_limit': 100_000, 'allow_revert': True})
+            self.assertEqual(1, tx.status)
+            raise AssertionError("This is OK!")
+
+        # 9. Another pay-out prohibited
+
+        with self.assertRaises(VirtualMachineError):
+            # https://eth-brownie.readthedocs.io/en/stable/core-contracts.html#transaction-parameters
+            tx = pledge.pay(benefactor.address, beneficiary.address, {'from': owner.address, 'gas_limit': 100_000, 'allow_revert': True})
+            raise AssertionError("Shouldn't be here!")

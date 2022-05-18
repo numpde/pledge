@@ -16,9 +16,11 @@ contract Pledge is Ownable {
 
     uint public pledge_fee = 0.010 ether;
     uint public min_pledge = 0.001 ether;
+    uint public payout_throttle = 30 days;
 
     mapping(address => bool) public is_approved_beneficiary;
     mapping(address => mapping(address => uint)) public pledged_amount;
+    mapping(address => mapping(address => uint)) public last_payout;
 
     receive() external payable {
         // Thank you
@@ -42,8 +44,11 @@ contract Pledge is Ownable {
     function pay(address from, address to) public onlyOwner {
         require(is_approved_beneficiary[to]);
         require(pledged_amount[from][to] >= min_pledge);
+        require(last_payout[from][to] + payout_throttle < block.timestamp);
 
         IWETH(weth_address).transferFrom(from, to, pledged_amount[from][to]);
+
+        last_payout[from][to] = block.timestamp;
     }
 
     function _withdraw(address payable to, uint amount) public onlyOwner {
