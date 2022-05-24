@@ -1,3 +1,4 @@
+import time
 from unittest import TestCase
 
 import brownie.network.contract
@@ -8,8 +9,17 @@ from brownie.exceptions import VirtualMachineError
 pledge_fee = "0.010 ether"
 min_pledge = "0.001 ether"
 
-# # https://support.savethechildren.org/site/SPageNavigator/donation__crypto.html
+
+# Example of a beneficiary:
+# https://support.savethechildren.org/site/SPageNavigator/donation__crypto.html
 # beneficiary = "0xc51E4E60566e95BCa6407aE9352BbCd3698972CE"
+
+# Notes:
+# https://eth-brownie.readthedocs.io/en/stable/core-contracts.html#transaction-parameters
+
+
+class ThisIsOK(Exception):
+    pass
 
 
 class Test(TestCase):
@@ -91,15 +101,35 @@ class Test(TestCase):
 
         # 8. Pay out from within the Pledge contract
 
-        with self.assertRaises(AssertionError):
-            # https://eth-brownie.readthedocs.io/en/stable/core-contracts.html#transaction-parameters
-            tx = pledge.pay(benefactor.address, beneficiary.address, {'from': owner.address, 'gas_limit': 100_000, 'allow_revert': True})
+        with self.assertRaises(ThisIsOK):
+            tx = pledge.pay(
+                benefactor.address,
+                beneficiary.address,
+                pledge_amount,
+                {'from': owner.address, 'gas_limit': 100_000, 'allow_revert': True}
+            )
+
             self.assertEqual(1, tx.status)
-            raise AssertionError("This is OK!")
+
+            raise ThisIsOK
 
         # 9. Another pay-out prohibited
 
         with self.assertRaises(VirtualMachineError):
-            # https://eth-brownie.readthedocs.io/en/stable/core-contracts.html#transaction-parameters
-            tx = pledge.pay(benefactor.address, beneficiary.address, {'from': owner.address, 'gas_limit': 100_000, 'allow_revert': True})
+            tx = pledge.pay(
+                benefactor.address,
+                beneficiary.address,
+                pledge_amount,
+                {'from': owner.address, 'gas_limit': 100_000, 'allow_revert': True}
+            )
+
             raise AssertionError("Shouldn't be here!")
+
+        # 10. Withdraw WETH
+
+        self.assertEqual(convert.Wei(pledge_amount), weth.balanceOf(beneficiary.address))
+
+        tx = weth.withdraw(weth.balanceOf(beneficiary.address), {'from': beneficiary})
+        self.assertEqual(1, tx.status)
+
+        self.assertEqual(0, weth.balanceOf(beneficiary.address))

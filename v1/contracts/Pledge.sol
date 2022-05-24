@@ -10,17 +10,18 @@ interface IWETH {
 }
 
 contract Pledge is Ownable {
-    string public name = "Plegde v1)";
+    string public name = "Plegde v1";
 
     address public weth_address = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     uint public pledge_fee = 0.010 ether;
     uint public min_pledge = 0.001 ether;
-    uint public payout_throttle = 30 days;
+
+    uint public payout_embargo = 30 days;
 
     mapping(address => bool) public is_approved_beneficiary;
     mapping(address => mapping(address => uint)) public pledged_amount;
-    mapping(address => mapping(address => uint)) public last_payout;
+    mapping(address => mapping(address => uint)) public last_payout_timestamp;
 
     receive() external payable {
         // Thank you
@@ -41,14 +42,14 @@ contract Pledge is Ownable {
         pledged_amount[msg.sender][beneficiary] = amount;
     }
 
-    function pay(address from, address to) public onlyOwner {
-        require(is_approved_beneficiary[to]);
-        require(pledged_amount[from][to] >= min_pledge);
-        require(last_payout[from][to] + payout_throttle < block.timestamp);
+    function pay(address from, address to, uint amount) public onlyOwner {
+        require(is_approved_beneficiary[to]);  // @dev: The beneficiary has to be approved first.
+        require(last_payout_timestamp[from][to] + payout_embargo < block.timestamp);  // @dev: Payout is too soon.
+        require(amount <= pledged_amount[from][to]);  // @dev: Amount to pay may not exceed the pledged amount.
 
-        IWETH(weth_address).transferFrom(from, to, pledged_amount[from][to]);
+        IWETH(weth_address).transferFrom(from, to, amount);
 
-        last_payout[from][to] = block.timestamp;
+        last_payout_timestamp[from][to] = block.timestamp;
     }
 
     function _withdraw(address payable to, uint amount) public onlyOwner {
