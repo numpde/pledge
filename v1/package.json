@@ -1,6 +1,9 @@
 {
   "devDependencies": {
     "ganache": "^7.1.0",
-    "truffle": "^5.5.14"
+    "truffle": "^5.1.67"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.6.0"
   }
 }
