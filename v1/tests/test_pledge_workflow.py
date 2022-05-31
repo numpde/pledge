@@ -8,10 +8,6 @@ min_pledge = "0.001 ether"
 brownie.network.connect()
 
 
-class ThisIsOK(Exception):
-    pass
-
-
 class accounts:
     from brownie import accounts as _
 
