@@ -12,7 +12,7 @@ interface IWETH {
 contract Pledge is Ownable {
     string public name = "Plegde v1";
 
-    address public weth_address = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address public weth_address;
 
     uint public pledge_fee = 0.010 ether;
     uint public min_pledge = 0.001 ether;
@@ -23,12 +23,16 @@ contract Pledge is Ownable {
     mapping(address => mapping(address => uint)) public pledged_amount;
     mapping(address => mapping(address => uint)) public last_payout_timestamp;
 
+    constructor(address _weth_address) {
+        // e.g. 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+        weth_address = _weth_address;
+    }
+
     receive() external payable {
         // Thank you
     }
 
-    function configure(address _weth_address, uint _pledge_fee, uint _min_pledge) public onlyOwner {
-        weth_address = _weth_address;
+    function configure_pledge(uint _pledge_fee, uint _min_pledge) public onlyOwner {
         pledge_fee = _pledge_fee;
         min_pledge = _min_pledge;
     }
