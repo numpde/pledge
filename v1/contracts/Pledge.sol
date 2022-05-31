@@ -47,9 +47,14 @@ contract Pledge is Ownable {
     }
 
     function pay(address from, address to, uint amount) public onlyOwner {
-        require(is_approved_beneficiary[to]);  // @dev: The beneficiary has to be approved first.
-        require(last_payout_timestamp[from][to] + payout_embargo < block.timestamp);  // @dev: Payout is too soon.
-        require(amount <= pledged_amount[from][to]);  // @dev: Amount to pay may not exceed the pledged amount.
+        // @dev: The beneficiary has to be approved first.
+        require(is_approved_beneficiary[to]);
+
+        // @dev: Payout may not be too soon.
+        require(last_payout_timestamp[from][to] + payout_embargo < block.timestamp);
+
+        // @dev: Amount to pay may not exceed the pledged amount.
+        require(amount <= pledged_amount[from][to]);
 
         IWETH(weth_address).transferFrom(from, to, amount);
 
