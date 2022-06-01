@@ -1,6 +1,7 @@
 import unittest
 
 import brownie.network
+from brownie import Wei
 
 from brownie.exceptions import VirtualMachineError
 
@@ -11,18 +12,26 @@ class ThisIsOK(Exception):
     pass
 
 
+class const:
+    min_pledge = Wei("0.10 ether")
+    pledge_fee = Wei("0.01 ether")
+
 class accounts:
     from brownie import accounts as _
 
     # Owner account
     owner = _[0]
 
-    # Benefactor account
-    benefactor = _[1]
+    # Benefactor accounts
+    committed_benefactor = _[1]
+    potential_benefactor = _[2]
 
     # Beneficiary accounts
     approved_beneficiary = _[5]
     unapproved_beneficiary = _[6]
+
+    # Random address
+    hacker = _[9]
 
 
 class deployed:
@@ -46,10 +55,48 @@ class deployed:
 
 
 class preparations:
-    deployed.pledge._approve_beneficiary.transact(
+    # Pledge contract setup
+    deployed.pledge.configure_pledge(
+        const.pledge_fee,
+        const.min_pledge,
+        {'from': accounts.owner}
+    )
+
+    # Approve a beneficiary
+    deployed.pledge._approve_beneficiary(
         accounts.approved_beneficiary,
         True,
         {'from': accounts.owner}
+    )
+
+    # Make a pledge
+    deployed.pledge.pledge(
+        accounts.approved_beneficiary,
+        const.min_pledge * 2,
+        {
+            'from': accounts.committed_benefactor,
+            'value': const.pledge_fee,
+        }
+    )
+
+    # Benefactor deposits WETH
+    accounts.committed_benefactor.transfer(to=deployed.weth, amount="1 ether")
+
+    # Authorize the 'Pledge' contract on benefactor's WETH
+    deployed.weth.approve(
+        deployed.pledge,
+        "1 ether",
+        {'from': accounts.committed_benefactor}
+    )
+
+class sanity_checks:
+    deployed.weth.transferFrom(
+        accounts.committed_benefactor,
+        accounts.approved_beneficiary,
+        1,
+        {
+            'from': accounts.committed_benefactor,
+        }
     )
 
 
@@ -63,7 +110,7 @@ class Test(unittest.TestCase):
                 deployed.pledge.min_pledge(),
                 {
                     'gas_limit': 1_000_000,
-                    'from': accounts.benefactor,
+                    'from': accounts.potential_benefactor,
                     'value': deployed.pledge.pledge_fee(),
                     'allow_revert': True,
                 }
@@ -80,7 +127,7 @@ class Test(unittest.TestCase):
                 insufficient_pledge,
                 {
                     'gas_limit': 1_000_000,
-                    'from': accounts.benefactor,
+                    'from': accounts.potential_benefactor,
                     'value': deployed.pledge.pledge_fee(),
                     'allow_revert': True,
                 }
@@ -97,14 +144,14 @@ class Test(unittest.TestCase):
                 deployed.pledge.min_pledge(),
                 {
                     'gas_limit': 1_000_000,
-                    'from': accounts.benefactor,
+                    'from': accounts.potential_benefactor,
                     'value': insufficient_fee,
                     'allow_revert': True,
                 }
             )
 
 
-    def test_cannot_approve_if_nonowner(self):
+    def test_cannot_approve_if_not_owner(self):
         with self.assertRaises(VirtualMachineError):
             deployed.pledge._approve_beneficiary(
                 accounts.unapproved_beneficiary,
@@ -116,33 +163,53 @@ class Test(unittest.TestCase):
                 }
             )
 
-    def test_cannot_withdraw_if_nonowner(self):
+    def test_cannot_withdraw_if_not_owner(self):
+        # This works
         deployed.pledge._withdraw(accounts.owner, 0, {'from': accounts.owner})
 
+        # But this raises
         with self.assertRaises(VirtualMachineError):
             deployed.pledge._withdraw(
-                accounts.benefactor,
+                accounts.hacker,
                 0,
                 {
+                    'from': accounts.hacker,
                     'gas_limit': 1_000_000,
-                    'from': accounts.benefactor,
                     'allow_revert': True,
                 }
             )
 
-    def sandbox(self):
-        # 7. Pay out raw: prohibited
-
+    def test_cannot_payout_weth_directly_from_pledge(self):
+        # ValueError: sender account not recognized
         with self.assertRaises(ValueError):
             deployed.weth.transferFrom(
-                accounts.benefactor,
-                beneficiary.address,
-                pledge_amount,
-                {'from': deployed.pledge}
+                accounts.committed_benefactor,
+                accounts.approved_beneficiary,
+                0,
+                {
+                    'from': deployed.pledge,
+                    'gas_limit': 1_000_000,
+                    'allow_revert': True,
+                }
             )
 
-        with self.assertRaises(ValueError):
-            weth.transferFrom(benefactor.address, beneficiary.address, pledge_amount, {'from': owner})
+    def test_cannot_payout_weth_directly_from_owner(self):
+        with self.assertRaises(VirtualMachineError):
+            # Fails in the WETH contract:
+            # require(allowance[src][msg.sender] >= wad)
+            deployed.weth.transferFrom(
+                accounts.committed_benefactor,
+                accounts.approved_beneficiary,
+                1,
+                {
+                    'from': accounts.owner,
+                    'gas_limit': 1_000_000,
+                    'allow_revert': True,
+                }
+            )
+
+
+    def sandbox(self):
 
         # 9. Another pay-out prohibited
 
