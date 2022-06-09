@@ -45,7 +45,7 @@ class Test(TestCase):
     def test_basic_workflow(self):
         # 2. Configure the `Pledge` contract
 
-        tx = deployed.pledge.configure_pledge.transact(
+        tx = deployed.pledge.configure_pledge(
             pledge_fee,
             min_pledge,
             {'from': accounts.owner}
@@ -57,7 +57,7 @@ class Test(TestCase):
 
         approve = True
 
-        tx = deployed.pledge._approve_beneficiary.transact(
+        tx = deployed.pledge._approve_beneficiary(
             accounts.beneficiary,
             approve,
             {'from': accounts.owner}
