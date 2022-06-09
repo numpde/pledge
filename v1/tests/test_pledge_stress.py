@@ -13,8 +13,9 @@ class ThisIsOK(Exception):
 
 
 class const:
-    min_pledge = Wei("0.10 ether")
-    pledge_fee = Wei("0.01 ether")
+    min_pledge = Wei("0.0110 ether")
+    pledge_fee = Wei("0.0011 ether")
+
 
 class accounts:
     from brownie import accounts as _
@@ -89,19 +90,21 @@ class preparations:
         {'from': accounts.committed_benefactor}
     )
 
-class sanity_checks:
-    deployed.weth.transferFrom(
-        accounts.committed_benefactor,
-        accounts.approved_beneficiary,
-        1,
-        {
-            'from': accounts.committed_benefactor,
-        }
-    )
+
+class SanityChecks(unittest.TestCase):
+    def test_plain_weth_transfer(self):
+        deployed.weth.transferFrom(
+            accounts.committed_benefactor,
+            accounts.approved_beneficiary,
+            1,
+            {
+                'from': accounts.committed_benefactor,
+            }
+        )
 
 
-class Test(unittest.TestCase):
-    def test_reverts_if_unapproved_beneficiary(self):
+class TestPledgePledge(unittest.TestCase):
+    def test_pledge_fails_if_unapproved_beneficiary(self):
         self.assertTrue(not deployed.pledge.is_approved_beneficiary(accounts.unapproved_beneficiary))
 
         with self.assertRaises(VirtualMachineError):
@@ -116,7 +119,7 @@ class Test(unittest.TestCase):
                 }
             )
 
-    def test_reverts_if_pledge_too_small(self):
+    def test_pledge_fails_if_pledge_too_small(self):
         self.assertTrue(deployed.pledge.is_approved_beneficiary(accounts.approved_beneficiary))
 
         insufficient_pledge = deployed.pledge.min_pledge() - 1
@@ -133,7 +136,7 @@ class Test(unittest.TestCase):
                 }
             )
 
-    def test_reverts_if_insufficient_fee(self):
+    def test_pledge_fails_if_insufficient_fee(self):
         self.assertTrue(deployed.pledge.is_approved_beneficiary(accounts.approved_beneficiary))
 
         insufficient_fee = deployed.pledge.pledge_fee() - 1
@@ -151,7 +154,8 @@ class Test(unittest.TestCase):
             )
 
 
-    def test_cannot_approve_if_not_owner(self):
+class TestOwnership(unittest.TestCase):
+    def test_approvebeneficiary_fails_if_not_owner(self):
         with self.assertRaises(VirtualMachineError):
             deployed.pledge._approve_beneficiary(
                 accounts.unapproved_beneficiary,
@@ -163,7 +167,7 @@ class Test(unittest.TestCase):
                 }
             )
 
-    def test_cannot_withdraw_if_not_owner(self):
+    def test_withdraw_fails_if_not_owner(self):
         # This works
         deployed.pledge._withdraw(accounts.owner, 0, {'from': accounts.owner})
 
@@ -179,6 +183,8 @@ class Test(unittest.TestCase):
                 }
             )
 
+
+class TestWeth(unittest.TestCase):
     def test_cannot_payout_weth_directly_from_pledge(self):
         # ValueError: sender account not recognized
         with self.assertRaises(ValueError):
@@ -208,9 +214,7 @@ class Test(unittest.TestCase):
                 }
             )
 
-
     def sandbox(self):
-
         # 9. Another pay-out prohibited
 
         with self.assertRaises(VirtualMachineError):
