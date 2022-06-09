@@ -12,12 +12,15 @@ interface IWETH {
 contract Pledge is Ownable {
     string public name = "Plegde v1";
 
+    // @dev: Set by constructor
     address public weth_address;
 
+    // @dev: Immutable
+    uint public payout_embargo = 30 days;
+
+    // @dev: Set by `configure_pledge`
     uint public pledge_fee = 0.010 ether;
     uint public min_pledge = 0.001 ether;
-
-    uint public payout_embargo = 30 days;
 
     mapping(address => bool) public is_approved_beneficiary;
     mapping(address => mapping(address => uint)) public pledged_amount;
