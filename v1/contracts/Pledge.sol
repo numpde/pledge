@@ -40,7 +40,6 @@ contract Pledge is Ownable {
     function pledge(address beneficiary, uint amount) public payable {
         require(is_approved_beneficiary[beneficiary]);
         require(amount >= min_pledge);
-
         require(msg.value >= pledge_fee);
 
         pledged_amount[msg.sender][beneficiary] = amount;
